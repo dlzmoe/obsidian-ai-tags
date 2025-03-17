@@ -9,7 +9,7 @@ interface AutoTaggerSettings {
 const DEFAULT_SETTINGS: AutoTaggerSettings = {
 	apiKey: '',
 	apiUrl: 'https://api.openai.com/v1/chat/completions',
-	model: 'gpt-3.5-turbo'
+	model: 'gpt-4o-mini'
 }
 
 export default class AutoTaggerPlugin extends Plugin {
