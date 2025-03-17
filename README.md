@@ -5,6 +5,14 @@
 - [x] 支持修改生成的内容
 - [x] 自定义第三方 api，只支持 openai 格式，可使用 oneapi 等中转其他格式 
 
+**支持格式：**
+
+- [x] OpenAI
+- [ ] Gemini
+- [ ] claude
+- [x] DeepSeek (深度求索)
+- [ ] DeepSeek (火山引擎)
+
 ## 使用
 
 1. 下载 Github 仓库到本地
