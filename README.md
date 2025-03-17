@@ -2,6 +2,8 @@
 
 一个强大的 Obsidian 插件，使用 AI 技术为笔记文件智能生成标签，帮助你更好地组织和管理知识库。
 
+![](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
+
 ## ✨ 主要特性
 
 - 🤖 支持多个主流 AI 服务商
@@ -60,14 +62,9 @@
 
 ## 🖼️ 功能展示
 
-### 设置面板
-![设置面板](https://github.com/user-attachments/assets/571891dd-04cc-44f5-9168-3411133033ab)
-
-### 标签选择对话框
-![标签选择](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
-
-### 标签生成界面
-![设置面板](https://github.com/user-attachments/assets/0bb82f73-b3ab-49c9-b94f-558d6009477c)
+![](https://github.com/user-attachments/assets/571891dd-04cc-44f5-9168-3411133033ab)
+![](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
+![](https://github.com/user-attachments/assets/0bb82f73-b3ab-49c9-b94f-558d6009477c)
 
 ## ❓ 常见问题
 
