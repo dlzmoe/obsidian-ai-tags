@@ -320,7 +320,10 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 					if (!this.plugin.settings.providerSettings[value].apiUrl) {
 						this.plugin.settings.providerSettings[value].apiUrl = PROVIDER_CONFIGS[value].defaultUrl;
 					}
-					this.plugin.settings.providerSettings[value].model = PROVIDER_CONFIGS[value].defaultModel;
+					// 只在首次设置或模型为空时使用默认模型
+					if (!this.plugin.settings.providerSettings[value].model) {
+						this.plugin.settings.providerSettings[value].model = PROVIDER_CONFIGS[value].defaultModel;
+					}
 					
 					await this.plugin.saveSettings();
 									// 更新提供商信息显示
@@ -395,11 +398,9 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				.setPlaceholder('自定义模型名称')
 				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model)
 				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
-						await this.plugin.saveSettings();
-						this.display(); // 重新加载设置以更新下拉列表
-					}
+					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
+					await this.plugin.saveSettings();
+					this.display(); // 重新加载设置以更新下拉列表
 				}));
 
 
