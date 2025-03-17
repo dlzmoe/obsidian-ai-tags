@@ -1,17 +1,47 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, Modal, MarkdownView, DropdownComponent } from 'obsidian';
 
-interface AutoTaggerSettings {
+import { AIService, AIServiceConfig } from './src/services/AIService';
+
+interface ProviderSettings {
 	apiKey: string;
 	apiUrl: string;
 	model: string;
+}
+
+interface AutoTaggerSettings {
 	provider: string;
+	providerSettings: Record<string, ProviderSettings>;
 }
 
 const DEFAULT_SETTINGS: AutoTaggerSettings = {
-	apiKey: '',
-	apiUrl: 'https://api.openai.com/v1/chat/completions',
-	model: 'gpt-4o-mini',
-	provider: 'openai'
+	provider: 'openai',
+	providerSettings: {
+		openai: {
+			apiKey: '',
+			apiUrl: 'https://api.openai.com/v1/chat/completions',
+			model: 'gpt-4o-mini'
+		},
+		gemini: {
+			apiKey: '',
+			apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
+			model: 'gemini-1.5-flash'
+		},
+		claude: {
+			apiKey: '',
+			apiUrl: 'https://api.anthropic.com/v1/messages',
+			model: 'claude-3-5-sonnet'
+		},
+		deepseek: {
+			apiKey: '',
+			apiUrl: 'https://api.deepseek.com/v1/chat/completions',
+			model: 'deepseek-chat'
+		},
+		volcano: {
+			apiKey: '',
+			apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+			model: ''
+		}
+	}
 }
 
 const PROVIDER_CONFIGS = {
@@ -22,8 +52,8 @@ const PROVIDER_CONFIGS = {
 	},
 	gemini: {
 		defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
-		defaultModel: 'gemini-pro',
-		models: ['gemini-pro', 'gemini-ultra']
+		defaultModel: 'gemini-1.5-flash',
+		models: ['gemini-1.5-flash', 'gemini-2.0-flash']
 	},
 	claude: {
 		defaultUrl: 'https://api.anthropic.com/v1/messages',
@@ -89,193 +119,25 @@ export default class AutoTaggerPlugin extends Plugin {
 	}
 
 	async analyzeTags(content: string): Promise<string[]> {
-		if (!this.settings.apiKey) {
+		const currentProvider = this.settings.provider;
+		const providerConfig = this.settings.providerSettings[currentProvider];
+
+		if (!providerConfig || !providerConfig.apiKey) {
 			throw new Error('请先在设置中配置 API 密钥');
 		}
 
-		switch (this.settings.provider) {
-			case 'openai':
-				return this.analyzeWithOpenAI(content);
-			case 'gemini':
-				return this.analyzeWithGemini(content);
-			case 'claude':
-				return this.analyzeWithClaude(content);
-			case 'deepseek':
-				return this.analyzeWithDeepSeek(content);
-			case 'volcano':
-				return this.analyzeWithVolcano(content);
-			default:
-				throw new Error('不支持的 AI 提供商');
+		const config: AIServiceConfig = {
+			apiKey: providerConfig.apiKey,
+			apiUrl: providerConfig.apiUrl,
+			model: providerConfig.model
+		};
+
+		const aiService = new AIService(config);
+		try {
+			return await aiService.generateTags(content);
+		} catch (error) {
+			throw new Error(`生成标签失败：${error.message}`);
 		}
-	}
-
-	async analyzeWithOpenAI(content: string): Promise<string[]> {
-		const response = await fetch(this.settings.apiUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${this.settings.apiKey}`
-			},
-			body: JSON.stringify({
-				model: this.settings.model,
-				messages: [
-					{
-						role: 'system',
-						content: '你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。'
-					},
-					{
-						role: 'user',
-						content: content
-					}
-				]
-			})
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error?.message || '请求失败');
-		}
-
-		const data = await response.json();
-		const tagsText = data.choices[0].message.content.trim();
-
-		return this.processTags(tagsText);
-	}
-
-	async analyzeWithGemini(content: string): Promise<string[]> {
-		const apiUrl = `${this.settings.apiUrl}${this.settings.model}:generateContent?key=${this.settings.apiKey}`;
-		
-		const response = await fetch(apiUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				contents: [
-					{
-						parts: [
-							{
-								text: "你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。\n\n" + content
-							}
-						]
-					}
-				]
-			})
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error?.message || '请求失败');
-		}
-
-		const data = await response.json();
-		const tagsText = data.candidates[0].content.parts[0].text.trim();
-
-		return this.processTags(tagsText);
-	}
-
-	async analyzeWithClaude(content: string): Promise<string[]> {
-		const response = await fetch(this.settings.apiUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': this.settings.apiKey,
-				'anthropic-version': '2023-06-01'
-			},
-			body: JSON.stringify({
-				model: this.settings.model,
-				max_tokens: 100,
-				system: "你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。",
-				messages: [
-					{
-						role: 'user',
-						content: content
-					}
-				]
-			})
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error?.message || '请求失败');
-		}
-
-		const data = await response.json();
-		const tagsText = data.content[0].text.trim();
-
-		return this.processTags(tagsText);
-	}
-
-	async analyzeWithDeepSeek(content: string): Promise<string[]> {
-		const response = await fetch(this.settings.apiUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${this.settings.apiKey}`
-			},
-			body: JSON.stringify({
-				model: this.settings.model,
-				messages: [
-					{
-						role: 'system',
-						content: '你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。'
-					},
-					{
-						role: 'user',
-						content: content
-					}
-				]
-			})
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error?.message || '请求失败');
-		}
-
-		const data = await response.json();
-		const tagsText = data.choices[0].message.content.trim();
-
-		return this.processTags(tagsText);
-	}
-
-	async analyzeWithVolcano(content: string): Promise<string[]> {
-		const response = await fetch(this.settings.apiUrl + this.settings.model, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${this.settings.apiKey}`
-			},
-			body: JSON.stringify({
-				messages: [
-					{
-						role: 'system',
-						content: '你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。'
-					},
-					{
-						role: 'user',
-						content: content
-					}
-				]
-			})
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error?.message || '请求失败');
-		}
-
-		const data = await response.json();
-		const tagsText = data.choice?.message?.content?.trim() || '';
-
-		return this.processTags(tagsText);
-	}
-
-	processTags(tagsText: string): string[] {
-		return tagsText.split(',')
-			.map((tag: string) => tag.trim())
-			.filter((tag: string) => tag)
-			.map((tag: string) => tag.replace(/\s+/g, ''));
 	}
 
 	async updateFileFrontMatter(file: TFile, newTags: string[]) {
@@ -393,6 +255,52 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h3', { text: '自动标签生成设置' });
 
+		// 添加提供商说明
+		const providerDescriptions = {
+			openai: [
+				'OpenAI',
+				'• API 地址：https://api.openai.com/v1/chat/completions',
+				'• 支持模型：gpt-4o-mini, gpt-4o, gpt-3.5-turbo'
+			],
+			gemini: [
+				'Gemini',
+				'• API 地址：https://generativelanguage.googleapis.com/v1beta/models/<MODEL_NAME>/generateContent',
+				'• 支持模型：gemini-1.5-flash, gemini-2.0-flash'
+			],
+			claude: [
+				'Claude',
+				'• API 地址：https://api.anthropic.com/v1/messages',
+				'• 支持模型：claude-3-5-sonnet, claude-3-7-sonnet, claude-3-opus, claude-3-haiku'
+			],
+			deepseek: [
+				'DeepSeek - 深度求索',
+				'• API 地址：https://api.deepseek.com/v1/chat/completions',
+				'• 支持模型：deepseek-chat, deepseek-coder'
+			],
+			volcano: [
+				'DeepSeek - 火山引擎',
+				'• API 地址：https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+				'• 注意：需要在请求 URL 中添加模型服务名称'
+			]
+		};
+
+		const showProviderInfo = (provider: string) => {
+			const providerSection = containerEl.querySelector('.provider-section');
+			if (providerSection) {
+				providerSection.remove();
+			}
+
+			const section = containerEl.createDiv({ cls: 'provider-section' });
+			const providerInfo = section.createDiv({ cls: 'provider-info' });
+
+			providerDescriptions[provider].forEach(text => {
+				providerInfo.createEl('p', { text });
+			});
+		};
+
+		// 显示当前选择的提供商信息
+		showProviderInfo(this.plugin.settings.provider);
+
 		new Setting(containerEl)
 			.setName('AI 提供商')
 			.setDesc('选择 AI 服务提供商')
@@ -400,19 +308,23 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				Object.keys(PROVIDER_CONFIGS).forEach(provider => {
 					dropdown.addOption(provider, provider === 'openai' ? 'OpenAI' : 
 						provider === 'gemini' ? 'Gemini' : 
-						provider === 'claude' ? 'Claude' : 
-						provider === 'deepseek' ? 'DeepSeek(深度求索)' : 
-						'DeepSeek(火山引擎)');
+						provider === 'claude' ? 'Claude（测试中）' : 
+						provider === 'deepseek' ? 'DeepSeek - 深度求索' : 
+						'DeepSeek - 火山引擎');
 				});
 				dropdown.setValue(this.plugin.settings.provider);
 				dropdown.onChange(async (value) => {
 					this.plugin.settings.provider = value;
 					
-					// 更新默认 API URL 和模型
-					this.plugin.settings.apiUrl = PROVIDER_CONFIGS[value].defaultUrl;
-					this.plugin.settings.model = PROVIDER_CONFIGS[value].defaultModel;
+					// 只在首次设置或 API 地址为空时使用默认 API URL
+					if (!this.plugin.settings.providerSettings[value].apiUrl) {
+						this.plugin.settings.providerSettings[value].apiUrl = PROVIDER_CONFIGS[value].defaultUrl;
+					}
+					this.plugin.settings.providerSettings[value].model = PROVIDER_CONFIGS[value].defaultModel;
 					
 					await this.plugin.saveSettings();
+									// 更新提供商信息显示
+					showProviderInfo(value);
 					
 					// 重新显示设置以反映更新
 					this.display();
@@ -424,9 +336,9 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			.setDesc('输入你的 API 密钥')
 			.addText(text => text
 				.setPlaceholder('请输入 API 密钥')
-				.setValue(this.plugin.settings.apiKey)
+				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey)
 				.onChange(async (value) => {
-					this.plugin.settings.apiKey = value;
+					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -435,9 +347,9 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			.setDesc('输入 API 地址')
 			.addText(text => text
 				.setPlaceholder(PROVIDER_CONFIGS[this.plugin.settings.provider].defaultUrl)
-				.setValue(this.plugin.settings.apiUrl)
+				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl)
 				.onChange(async (value) => {
-					this.plugin.settings.apiUrl = value;
+					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -468,9 +380,9 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 					dropdown.addOption(this.plugin.settings.model, this.plugin.settings.model);
 				}
 				
-				dropdown.setValue(this.plugin.settings.model);
+				dropdown.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model);
 				dropdown.onChange(async (value) => {
-					this.plugin.settings.model = value;
+					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
 					await this.plugin.saveSettings();
 				});
 			});
@@ -481,35 +393,15 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			.setDesc('输入自定义模型名称 (可选)')
 			.addText(text => text
 				.setPlaceholder('自定义模型名称')
+				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model)
 				.onChange(async (value) => {
 					if (value) {
-						this.plugin.settings.model = value;
+						this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
 						await this.plugin.saveSettings();
 						this.display(); // 重新加载设置以更新下拉列表
 					}
 				}));
 
-		// 添加提供商特定的帮助信息
-		containerEl.createEl('h3', { text: '提供商说明' });
 
-		const providerInfo = containerEl.createDiv({ cls: 'provider-info' });
-		
-		switch (this.plugin.settings.provider) {
-			case 'openai':
-				providerInfo.createEl('p', { text: 'OpenAI API 使用标准的 chat completions 接口。' });
-				break;
-			case 'gemini':
-				providerInfo.createEl('p', { text: 'Gemini API 需要以 "key=" 形式在 URL 中附加 API 密钥。在此设置中，API 密钥将自动附加到请求 URL。' });
-				break;
-			case 'claude':
-				providerInfo.createEl('p', { text: 'Claude API 需要在请求头中添加 "x-api-key" 字段。' });
-				break;
-			case 'deepseek':
-				providerInfo.createEl('p', { text: 'DeepSeek API 使用与 OpenAI 兼容的接口。' });
-				break;
-			case 'volcano':
-				providerInfo.createEl('p', { text: '火山引擎 API 需要在请求 URL 中添加模型服务名称。' });
-				break;
-		}
 	}
 }
