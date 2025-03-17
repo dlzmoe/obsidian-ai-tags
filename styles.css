@@ -1,0 +1,31 @@
+.tag-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+
+.tag-row input[type="text"] {
+  flex-grow: 1;
+  margin-left: 0.5em;
+  padding: 0.3em;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+}
+
+
+.button-container button:nth-child(2) {
+  background: #333;
+  color: #fff;
+  transition: all 0.1s linear;
+  cursor: pointer;
+}
+
+.button-container button:hover {
+  opacity: 0.8;
+}

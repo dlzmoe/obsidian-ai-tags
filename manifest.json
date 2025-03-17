@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-ai-tags",
+  "name": "AI Tags Generator",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "使用AI自动为文档生成标签",
+  "author": "Your Name",
+  "authorUrl": "https://github.com/yourusername",
+  "isDesktopOnly": false
+}
