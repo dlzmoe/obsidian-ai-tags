@@ -3,7 +3,7 @@
   "name": "AI Tags Generator",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "使用AI自动为文档生成标签",
+  "description": "使用 AI 自动为文档生成标签",
   "author": "dlzmoe",
   "authorUrl": "https://github.com/dlzmoe/obsidian-ai-tags",
   "isDesktopOnly": false

@@ -3,12 +3,12 @@
 一个 obsidian 插件，使用 AI 给笔记文件生成推荐标签，无其他附加功能，已开源。
 
 - [x] 支持修改生成的内容
-- [x] 自定义第三方api，只支持openai格式，可使用oneapi等中转其他格式 
+- [x] 自定义第三方 api，只支持 openai 格式，可使用 oneapi 等中转其他格式 
 
 ## 使用
 
-1. 在 `plugins` 目录下新建文件夹 `obsidian-ai-tags`
-2. 复制 `manifest.json`、`main.js`、`styles.css` 三个文件到上面的文件夹中
+1. 下载 Github 仓库到本地
+2. 将下载的文件夹改名为 `obsidian-ai-tags` 放在 `plugins` 目录下
 3. 在软件的 `第三方插件` 中开启 `AI Tags Generator`
 4. 设置自己的 api key 等信息
 5. 打开文档，点击左侧标签按钮即可生成推荐标签
