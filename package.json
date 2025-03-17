@@ -1,7 +1,7 @@
 {
   "name": "obsidian-ai-tags",
   "version": "1.0.0",
-  "description": "使用 AI 自动为文档笔记生成标签",
+  "description": "Automatically generate tags for document notes using AI.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

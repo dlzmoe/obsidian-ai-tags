@@ -60,24 +60,24 @@
 
 ## 🖼️ 功能展示
 
-### 标签生成界面
+### 设置面板
 ![标签生成界面](https://github.com/user-attachments/assets/88d0d619-8740-41a2-8566-3126cf5b810b)
 
 ### 标签选择对话框
 ![标签选择](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
 
-### 设置面板
+### 标签生成界面
 ![设置面板](https://github.com/user-attachments/assets/0bb82f73-b3ab-49c9-b94f-558d6009477c)
 
 ## ❓ 常见问题
 
-**Q: 为什么标签生成失败？**
+**Q: 为什么标签生成失败？**  
 A: 请检查：
 1. API 密钥是否正确配置
 2. 网络连接是否正常
 3. API 余额是否充足
 
-**Q: 如何使用第三方 API 代理？**
+**Q: 如何使用第三方 API 代理？**  
 A: 在设置中修改 API 地址为你的代理服务地址即可，格式需与原始 API 格式保持一致。
 
 ## 📄 开源协议
