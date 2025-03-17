@@ -61,7 +61,7 @@
 ## 🖼️ 功能展示
 
 ### 设置面板
-![标签生成界面](https://github.com/user-attachments/assets/88d0d619-8740-41a2-8566-3126cf5b810b)
+![设置面板](https://github.com/user-attachments/assets/571891dd-04cc-44f5-9168-3411133033ab)
 
 ### 标签选择对话框
 ![标签选择](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
