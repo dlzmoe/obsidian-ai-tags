@@ -4,6 +4,7 @@ export interface AIServiceConfig {
     apiKey: string;
     apiUrl: string;
     model: string;
+    existingTags?: string[];
 }
 
 export interface AIResponse {
@@ -63,6 +64,36 @@ export class AIService {
         throw lastError;
     }
 
+    private calculateSimilarity(str1: string, str2: string): number {
+        str1 = str1.toLowerCase();
+        str2 = str2.toLowerCase();
+        if (str1 === str2) return 1.0;
+        
+        const set1 = new Set(str1.split(''));
+        const set2 = new Set(str2.split(''));
+        const intersection = new Set([...set1].filter(x => set2.has(x)));
+        
+        return intersection.size / Math.max(set1.size, set2.size);
+    }
+
+    private findSimilarExistingTag(newTag: string): string | null {
+        if (!this.config.existingTags?.length) return null;
+        
+        const similarityThreshold = 0.7;
+        let mostSimilarTag = null;
+        let highestSimilarity = 0;
+
+        for (const existingTag of this.config.existingTags) {
+            const similarity = this.calculateSimilarity(newTag, existingTag);
+            if (similarity > similarityThreshold && similarity > highestSimilarity) {
+                highestSimilarity = similarity;
+                mostSimilarTag = existingTag;
+            }
+        }
+
+        return mostSimilarTag;
+    }
+
     async generateTags(content: string): Promise<string[]> {
         const provider = this.getProviderFromUrl();
         const response = await this.makeRequest(
@@ -75,7 +106,12 @@ export class AIService {
         );
 
         const data = await response.json();
-        return this.parseResponse(data, provider);
+        const generatedTags = this.parseResponse(data, provider);
+        
+        return generatedTags.map(tag => {
+            const similarTag = this.findSimilarExistingTag(tag);
+            return similarTag || tag;
+        });
     }
 
     private getProviderFromUrl(): string {

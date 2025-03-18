@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ai-tags",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatically generate tags for document notes using AI.",
   "main": "main.js",
   "scripts": {
