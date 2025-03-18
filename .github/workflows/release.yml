@@ -1,88 +1,60 @@
-name: Release Obsidian Plugin
+name: Check and Create Release
 
 on:
   push:
     branches:
       - main
-      - master
-
-permissions:
-  contents: write
-  releases: write
+  workflow_dispatch:
 
 jobs:
-  release:
+  check-release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22'
 
-      # Skip build steps and use files from root directory directly
+    - name: Install dependencies
+      run: npm install
 
-      - name: Get package version
-        id: get_version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+    - name: Get package.json version
+      id: get_version
+      run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
-      - name: Check if release exists
-        id: check_release
-        run: |
-          RELEASE_EXISTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.get_version.outputs.version }}" \
-            | jq -r '.message')
-          if [ "$RELEASE_EXISTS" = "Not Found" ]; then
-            echo "exists=false" >> $GITHUB_OUTPUT
-          else
-            echo "exists=true" >> $GITHUB_OUTPUT
-          fi
+    - name: Get latest release version
+      id: get_release
+      run: |
+        curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name' > latest_release.txt
 
-      - name: Create Release
-        if: steps.check_release.outputs.exists == 'false'
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: ${{ steps.get_version.outputs.version }}
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: false
+    - name: Compare versions
+      id: compare_versions
+      run: |
+        if [ "$(cat latest_release.txt)" != "$PACKAGE_VERSION" ]; then
+          echo "Version mismatch"
+          echo "create_release=true" >> $GITHUB_ENV
+        else
+          echo "Version matches"
+          echo "create_release=false" >> $GITHUB_ENV
+        fi
 
-      - name: Upload main.js
-        if: steps.check_release.outputs.exists == 'false'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./main.js
-          asset_name: main.js
-          asset_content_type: application/javascript
+    - name: Create new release
+      if: env.create_release == 'true'
+      run: |
+        CURRENT_DATE=$(TZ='Asia/Shanghai' date +'%Y-%m-%d  %H:%M')
+        sed -i "s/\$PACKAGE_VERSION/$PACKAGE_VERSION/g" CHANGELOG.md
+        sed -i "s/\$CURRENT_DATE/$CURRENT_DATE/g" CHANGELOG.md
+        npm run build
+        gh release create "$PACKAGE_VERSION" \
+        -t "$PACKAGE_VERSION" \
+        -n "$(cat CHANGELOG.md)
 
-      - name: Upload manifest.json
-        if: steps.check_release.outputs.exists == 'false'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./manifest.json
-          asset_name: manifest.json
-          asset_content_type: application/json
-
-      - name: Upload styles.css
-        if: steps.check_release.outputs.exists == 'false'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./styles.css
-          asset_name: styles.css
-          asset_content_type: text/css
+        发布于：$CURRENT_DATE" \
+        -F main.js \
+        -F manifest.json \
+        -F styles.css
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
