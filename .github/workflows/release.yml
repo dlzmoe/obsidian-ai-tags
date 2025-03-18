@@ -19,11 +19,7 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build plugin
-        run: npm run build
+      # Skip build steps and use files from root directory directly
 
       - name: Get package version
         id: get_version
