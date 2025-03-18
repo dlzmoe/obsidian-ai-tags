@@ -47,7 +47,6 @@ jobs:
         CURRENT_DATE=$(TZ='Asia/Shanghai' date +'%Y-%m-%d  %H:%M')
         sed -i "s/\$PACKAGE_VERSION/$PACKAGE_VERSION/g" CHANGELOG.md
         sed -i "s/\$CURRENT_DATE/$CURRENT_DATE/g" CHANGELOG.md
-        npm run build
         gh release create "$PACKAGE_VERSION" \
         -t "$PACKAGE_VERSION" \
         -n "$(cat CHANGELOG.md)
