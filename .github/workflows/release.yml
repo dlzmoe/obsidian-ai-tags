@@ -45,15 +45,12 @@ jobs:
       if: env.create_release == 'true'
       run: |
         CURRENT_DATE=$(TZ='Asia/Shanghai' date +'%Y-%m-%d  %H:%M')
-        sed -i "s/\$PACKAGE_VERSION/$PACKAGE_VERSION/g" CHANGELOG.md
-        sed -i "s/\$CURRENT_DATE/$CURRENT_DATE/g" CHANGELOG.md
+        # 获取version-log.md中最新版本的内容
+        awk '/^## / {if (p) {exit}; p=1; next} p {print}' version-log.md > release_notes.tmp
         gh release create "$PACKAGE_VERSION" \
         -t "$PACKAGE_VERSION" \
-        -n "$(cat CHANGELOG.md)
-
-        发布于：$CURRENT_DATE" \
-        -F main.js \
-        -F manifest.json \
-        -F styles.css
+        -F release_notes.tmp \
+        --assets main.js,manifest.json,styles.css
+        rm release_notes.tmp
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
