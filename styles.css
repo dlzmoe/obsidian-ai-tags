@@ -29,3 +29,67 @@
 .button-container button:hover {
   opacity: 0.8;
 }
+
+/* 自定义提示词设置的垂直布局 */
+.setting-item.custom-prompt-setting {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.setting-item.custom-prompt-setting .setting-item-info {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.setting-item.custom-prompt-setting .setting-item-control {
+  width: 100%;
+}
+
+.setting-item.custom-prompt-setting textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+}
+
+/* 提供商信息样式 */
+.provider-section {
+  margin: 1em 0;
+  padding: 1em;
+  background: var(--background-secondary);
+  border-radius: 4px;
+}
+
+.provider-info p {
+  margin: 0.5em 0;
+  color: var(--text-muted);
+}
+
+.provider-info p:first-child {
+  color: var(--text-normal);
+  font-weight: bold;
+}
+
+/* 火山引擎模型设置隐藏规则 */
+[data-provider="volcano"] .model-dropdown {
+  display: none;
+}
+
+/* 设置项间距优化 */
+.setting-item {
+  padding: 0.75em 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.setting-item:first-child {
+  border-top: none;
+}
+
+/* 下拉框样式优化 */
+.setting-item select {
+  min-width: 200px;
+}
+
+/* 输入框样式优化 */
+.setting-item input[type="text"] {
+  min-width: 300px;
+}

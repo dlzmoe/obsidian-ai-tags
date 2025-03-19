@@ -11,10 +11,12 @@ interface ProviderSettings {
 interface AutoTaggerSettings {
 	provider: string;
 	providerSettings: Record<string, ProviderSettings>;
+	customPrompt: string;
 }
 
 const DEFAULT_SETTINGS: AutoTaggerSettings = {
 	provider: 'openai',
+	customPrompt: '你是一个文档标签生成器，请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明。',
 	providerSettings: {
 		openai: {
 			apiKey: '',
@@ -63,7 +65,7 @@ const PROVIDER_CONFIGS = {
 	deepseek: {
 		defaultUrl: 'https://api.deepseek.com/v1/chat/completions',
 		defaultModel: 'deepseek-chat',
-		models: ['deepseek-chat', 'deepseek-coder']
+		models: ['deepseek-chat', 'deepseek-reasoner']
 	},
 	volcano: {
 		defaultUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
@@ -129,7 +131,8 @@ export default class AutoTaggerPlugin extends Plugin {
 		const config: AIServiceConfig = {
 			apiKey: providerConfig.apiKey,
 			apiUrl: providerConfig.apiUrl,
-			model: providerConfig.model
+			model: providerConfig.model,
+			customPrompt: this.settings.customPrompt
 		};
 
 		const aiService = new AIService(config);
@@ -190,7 +193,7 @@ class TagSelectionModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 
-		contentEl.createEl('h3', { text: '推荐标签' });
+		contentEl.createEl('h3', { text: '标签生成' });
 
 		const tagContainer = contentEl.createDiv({ cls: 'tag-container' });
 
@@ -255,6 +258,17 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h3', { text: '自动标签生成设置' });
 
+		// 添加 GitHub 链接
+		const githubLink = containerEl.createEl('a', {
+			text: '在 GitHub 上提交反馈',
+			href: 'https://github.com/dlzmoe/obsidian-ai-tags'
+		});
+		githubLink.addClass('setting-item-description');
+		githubLink.style.display = 'inline-block';
+		githubLink.style.textAlign = 'left';
+		githubLink.style.cursor = 'pointer';
+		githubLink.style.color = 'var(--link-color)';
+
 		// 添加提供商说明
 		const providerDescriptions = {
 			openai: [
@@ -275,12 +289,12 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			deepseek: [
 				'DeepSeek - 深度求索',
 				'• API 地址：https://api.deepseek.com/v1/chat/completions',
-				'• 支持模型：deepseek-chat, deepseek-coder'
+				'• 支持模型：deepseek-chat, deepseek-reasoner'
 			],
 			volcano: [
 				'DeepSeek - 火山引擎',
 				'• API 地址：https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-				'• 注意：需要在请求 URL 中添加模型服务名称'
+				'• 注意：需要在火山方舟设置推理模型，然后添加模型名称，如：ep-20250221084433'
 			]
 		};
 
@@ -314,22 +328,24 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				});
 				dropdown.setValue(this.plugin.settings.provider);
 				dropdown.onChange(async (value) => {
+					// 保存当前提供商的设置
+					const currentProvider = this.plugin.settings.provider;
+					const currentSettings = this.plugin.settings.providerSettings[currentProvider];
+
+					// 更新提供商
 					this.plugin.settings.provider = value;
-					
-					// 只在首次设置或 API 地址为空时使用默认 API URL
-					if (!this.plugin.settings.providerSettings[value].apiUrl) {
-						this.plugin.settings.providerSettings[value].apiUrl = PROVIDER_CONFIGS[value].defaultUrl;
+
+					// 初始化新提供商的设置（仅在首次设置时）
+					if (!this.plugin.settings.providerSettings[value]) {
+						this.plugin.settings.providerSettings[value] = {
+							apiKey: '',
+							apiUrl: PROVIDER_CONFIGS[value].defaultUrl,
+							model: PROVIDER_CONFIGS[value].defaultModel
+						};
 					}
-					// 只在首次设置或模型为空时使用默认模型
-					if (!this.plugin.settings.providerSettings[value].model) {
-						this.plugin.settings.providerSettings[value].model = PROVIDER_CONFIGS[value].defaultModel;
-					}
-					
+
 					await this.plugin.saveSettings();
-									// 更新提供商信息显示
 					showProviderInfo(value);
-					
-					// 重新显示设置以反映更新
 					this.display();
 				});
 			});
@@ -369,39 +385,74 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			});
 		}
 
+		// 添加预设模型下拉框
 		new Setting(containerEl)
-			.setName('模型')
-			.setDesc('选择 AI 模型')
+			.setName('预设模型')
+			.setDesc('选择预设的 AI 模型')
 			.addDropdown(dropdown => {
 				const models = PROVIDER_CONFIGS[this.plugin.settings.provider].models;
 				models.forEach(model => {
 					dropdown.addOption(model, model);
 				});
 				
-				// 如果当前设置的模型不在列表中，则添加它
-				if (!models.includes(this.plugin.settings.model)) {
-					dropdown.addOption(this.plugin.settings.model, this.plugin.settings.model);
-				}
+				// 获取当前提供商的模型设置
+				const currentModel = this.plugin.settings.providerSettings[this.plugin.settings.provider].model;
 				
-				dropdown.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model);
+				// 设置当前值为预设模型中的一个，如果不在预设中则选择第一个
+				const defaultModel = models.includes(currentModel) ? currentModel : models[0];
+				dropdown.setValue(defaultModel);
+				
 				dropdown.onChange(async (value) => {
-					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
-					await this.plugin.saveSettings();
+					// 只有当用户没有输入自定义模型时，才使用预设模型
+					const customModelInput = this.plugin.settings.providerSettings[this.plugin.settings.provider].customModel || '';
+					if (!customModelInput.trim()) {
+						this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
+						await this.plugin.saveSettings();
+					}
 				});
-			});
+			})
+			.settingEl.style.display = this.plugin.settings.provider === 'volcano' ? 'none' : 'flex';
 
 		// 为每个提供商添加自定义模型输入
 		new Setting(containerEl)
-			.setName('自定义模型')
-			.setDesc('输入自定义模型名称 (可选)')
+			.setName(this.plugin.settings.provider === 'volcano' ? '模型' : '自定义模型')
+			.setDesc(this.plugin.settings.provider === 'volcano' ? '输入模型名称' : '输入自定义模型名称 (优先使用)')
 			.addText(text => text
 				.setPlaceholder('自定义模型名称')
 				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model)
 				.onChange(async (value) => {
-					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value;
+					// 更新模型设置为自定义输入的值
+					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value.trim();
 					await this.plugin.saveSettings();
-					this.display(); // 重新加载设置以更新下拉列表
 				}));
+
+		// 添加自定义提示词设置
+		const defaultPrompt = '你是一个文档标签生成器，请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明。';
+		const customPromptSetting = new Setting(containerEl)
+			.setClass('custom-prompt-setting')
+			.setName('自定义提示词')
+			.setDesc('自定义 AI 生成标签的提示词，留空则使用默认提示词')
+			.addTextArea(text => {
+				text.setValue(this.plugin.settings.customPrompt || defaultPrompt)
+					.onChange(async (value) => {
+						this.plugin.settings.customPrompt = value;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 6;
+				text.inputEl.cols = 50;
+				text.inputEl.style.minHeight = '150px';
+				text.inputEl.style.resize = 'vertical';
+			})
+			.addButton(button => {
+				button
+					.setIcon('reset')
+					.setTooltip('重置为默认提示词')
+					.onClick(async () => {
+						this.plugin.settings.customPrompt = defaultPrompt;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
 
 
 	}

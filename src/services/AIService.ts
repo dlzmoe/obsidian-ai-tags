@@ -13,7 +13,11 @@ export interface AIResponse {
 
 export class AIService {
     private config: AIServiceConfig;
-    private static SYSTEM_PROMPT = '你是一个文档标签生成器。请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。';
+    private static DEFAULT_SYSTEM_PROMPT = '你是一个文档标签生成器，请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明，禁止文本中包含空格。';
+
+    private getSystemPrompt(): string {
+        return this.config.customPrompt?.trim() || AIService.DEFAULT_SYSTEM_PROMPT;
+    }
     private static TIMEOUT = 30000; // 30 秒超时
     private static MAX_RETRIES = 2;
 
@@ -121,6 +125,10 @@ export class AIService {
         return 'openai';
     }
 
+    private getCustomPrompt(): string {
+        return this.plugin.settings.customPrompt;
+    }
+
     private getFullApiUrl(provider: string): string {
         if (provider === 'gemini') {
             return `${this.config.apiUrl}${this.config.model}:generateContent?key=${this.config.apiKey}`;
@@ -146,7 +154,7 @@ export class AIService {
                 contents: [
                     {
                         parts: [
-                            { text: AIService.SYSTEM_PROMPT },
+                            { text: this.getSystemPrompt() },
                             { text: content }
                         ]
                     }
@@ -159,7 +167,7 @@ export class AIService {
             messages: [
                 {
                     role: 'system',
-                    content: AIService.SYSTEM_PROMPT
+                    content: this.getSystemPrompt()
                 },
                 {
                     role: 'user',
