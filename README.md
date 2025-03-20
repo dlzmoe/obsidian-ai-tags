@@ -81,7 +81,8 @@
 
 ## 🖼️ 功能展示
 
-![](https://github.com/user-attachments/assets/571891dd-04cc-44f5-9168-3411133033ab)
+![image](https://github.com/user-attachments/assets/f2e1da14-0ce3-4a6f-8b28-95c854ba175c)
+
 ![](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
 ![](https://github.com/user-attachments/assets/0bb82f73-b3ab-49c9-b94f-558d6009477c)
 
