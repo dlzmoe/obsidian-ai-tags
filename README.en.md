@@ -28,17 +28,7 @@ A powerful Obsidian plugin that uses AI technology to intelligently generate tag
 
 ## 🚀 Installation
 
-### Method 1: Install from Plugin Store (Recommended)
-
-1. Open Obsidian Settings
-2. Go to Community Plugins
-3. Search for "AI Tags Generator"
-4. Click Install
-5. Enable the plugin
-
-> Note: The plugin has been submitted to the official store and is awaiting approval.
-
-### Method 2: Manual Installation
+> Note: This project is not yet available on the Obsidian plugin store.
 
 1. Download the following files from the [GitHub Releases](https://github.com/dlzmoe/obsidian-ai-tags/releases) page:
    - main.js
