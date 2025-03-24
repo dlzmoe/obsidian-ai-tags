@@ -130,8 +130,14 @@ export class AIService {
     }
 
     private getFullApiUrl(provider: string): string {
-        if (provider === 'gemini') {
-            return `${this.config.apiUrl}${this.config.model}:generateContent?key=${this.config.apiKey}`;
+        if (provider === "gemini") {
+            const baseUrl = this.config.apiUrl;
+            const modelPath = `/v1beta/models/${this.config.model}:generateContent`;
+            // 如果是代理地址，直接返回完整URL
+            if (baseUrl.includes('gemini-proxy')) {
+                return baseUrl;
+            }
+            return `${baseUrl}${modelPath}`;
         }
         return this.config.apiUrl;
     }
@@ -141,8 +147,12 @@ export class AIService {
             'Content-Type': 'application/json'
         };
 
-        if (provider !== 'gemini' && this.config.apiKey) {
-            headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+        if (this.config.apiKey) {
+            if (provider === 'gemini') {
+                headers['x-goog-api-key'] = this.config.apiKey;
+            } else {
+                headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+            }
         }
 
         return headers;
@@ -193,6 +203,24 @@ export class AIService {
                 .map((tag: string) => tag.replace(/\s+/g, ''));
         } catch (error) {
             throw new Error('解析 AI 响应失败');
+        }
+    }
+
+    async testConnection(): Promise<void> {
+        const provider = this.getProviderFromUrl();
+        const testMessage = '你好';
+        
+        try {
+            await this.makeRequest(
+                this.getFullApiUrl(provider),
+                {
+                    method: 'POST',
+                    headers: this.getHeaders(provider),
+                    body: JSON.stringify(this.getRequestBody(testMessage, provider))
+                }
+            );
+        } catch (error) {
+            throw new Error(`API连接测试失败: ${error.message}`);
         }
     }
 }

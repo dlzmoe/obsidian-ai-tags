@@ -53,7 +53,7 @@ const PROVIDER_CONFIGS = {
 		models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
 	},
 	gemini: {
-		defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
+		defaultUrl: 'https://generativelanguage.googleapis.com',
 		defaultModel: 'gemini-1.5-flash',
 		models: ['gemini-1.5-flash', 'gemini-2.0-flash']
 	},
@@ -278,7 +278,7 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			],
 			gemini: [
 				'Gemini',
-				'• API 地址：https://generativelanguage.googleapis.com/v1beta/models/<MODEL_NAME>/generateContent',
+				'• API 地址：https://generativelanguage.googleapis.com（暂不支持代理地址）',
 				'• 支持模型：gemini-1.5-flash, gemini-2.0-flash'
 			],
 			claude: [
@@ -359,7 +359,46 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey = value;
 					await this.plugin.saveSettings();
-				}));
+				}))
+			.addButton(button => {
+				button
+					.setIcon('check')
+					.setTooltip('测试连通性')
+					.onClick(async (evt) => {
+						const buttonEl = evt.currentTarget as HTMLElement;
+						if (buttonEl.hasClass('loading')) return;
+
+						const provider = this.plugin.settings.provider;
+						const config = this.plugin.settings.providerSettings[provider];
+
+						if (!config.apiKey) {
+							new Notice('请先输入 API 密钥');
+							return;
+						}
+
+						buttonEl.addClass('loading');
+						const originalIcon = buttonEl.querySelector('.svg-icon')?.innerHTML;
+						buttonEl.querySelector('.svg-icon').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>';
+
+						const aiService = new AIService({
+							apiKey: config.apiKey,
+							apiUrl: config.apiUrl,
+							model: config.model
+						});
+
+						try {
+							await aiService.testConnection();
+							new Notice('API 连接测试成功');
+						} catch (error) {
+							new Notice(`API 连接测试失败: ${error.message}`);
+						} finally {
+							buttonEl.removeClass('loading');
+							if (originalIcon) {
+								buttonEl.querySelector('.svg-icon').innerHTML = originalIcon;
+							}
+						}
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('API 地址')
@@ -370,12 +409,37 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = value;
 					await this.plugin.saveSettings();
-				}));
+				}))
+			.addButton(button => {
+				button
+					.setIcon('reset')
+					.setTooltip('恢复默认 API 地址')
+					.onClick(async (evt) => {
+						const buttonEl = evt.currentTarget as HTMLElement;
+						if (buttonEl.hasClass('loading')) return;
+
+						buttonEl.addClass('loading');
+						const originalIcon = buttonEl.querySelector('.svg-icon')?.innerHTML;
+						buttonEl.querySelector('.svg-icon').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>';
+
+						try {
+							this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = 
+								PROVIDER_CONFIGS[this.plugin.settings.provider].defaultUrl;
+							await this.plugin.saveSettings();
+							this.display();
+						} finally {
+							buttonEl.removeClass('loading');
+							if (originalIcon) {
+								buttonEl.querySelector('.svg-icon').innerHTML = originalIcon;
+							}
+						}
+					});
+			});
 
 		// 为特定提供商添加提示
 		if (this.plugin.settings.provider === 'gemini') {
 			containerEl.createEl('div', { 
-				text: '注意：Gemini API URL 应以 https://generativelanguage.googleapis.com/v1beta/models/ 开头，模型名称将自动添加。', 
+				text: '注意：Gemini API URL 暂不支持，请使用 https://generativelanguage.googleapis.com 作为默认地址。', 
 				cls: 'setting-item-description' 
 			});
 		} else if (this.plugin.settings.provider === 'volcano') {
