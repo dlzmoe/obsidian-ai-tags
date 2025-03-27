@@ -264,10 +264,7 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			href: 'https://github.com/dlzmoe/obsidian-ai-tags'
 		});
 		githubLink.addClass('setting-item-description');
-		githubLink.style.display = 'inline-block';
-		githubLink.style.textAlign = 'left';
-		githubLink.style.cursor = 'pointer';
-		githubLink.style.color = 'var(--link-color)';
+		githubLink.addClass('github-feedback-link');
 
 		// 添加提供商说明
 		const providerDescriptions = {
@@ -475,10 +472,10 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 					}
 				});
 			})
-			.settingEl.style.display = this.plugin.settings.provider === 'volcano' ? 'none' : 'flex';
+			.settingEl.dty=nodr':lay =
 
 		// 为每个提供商添加自定义模型输入
-		new Setting(containerEl)
+		new === 'volcano' ? 'none' : 'flex'Setting(containerEl)
 			.setName(this.plugin.settings.provider === 'volcano' ? '模型' : '自定义模型')
 			.setDesc(this.plugin.settings.provider === 'volcano' ? '输入模型名称' : '输入自定义模型名称 (优先使用)')
 			.addText(text => text
