@@ -39,6 +39,11 @@
 4. 重启 Obsidian
 5. 在设置 > 第三方插件中启用 AI Tags Generator
 
+**或者使用 [BRAT 插件](https://github.com/TfTHacker/obsidian42-brat) 安装：**
+1. 安装 BRAT 插件
+2. 在 BRAT 设置中添加本插件仓库路径：`dlzmoe/obsidian-ai-tags`
+3. 启用 AI Tags Generator 插件
+
 ## ⚙️ 配置说明
 
 1. 在 Obsidian 设置面板中找到 "AI Tags Generator" 设置项
