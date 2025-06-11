@@ -141,9 +141,6 @@ export default class AutoTaggerPlugin extends Plugin {
 	async loadExistingTags() {
 		this.existingTags = new Set<string>();
 		const files = this.app.vault.getMarkdownFiles();
-		console.log('开始加载现有标签...');
-		console.log(`找到 ${files.length} 个 Markdown 文件`);
-
 		for (const file of files) {
 			const cache = this.app.metadataCache.getFileCache(file);
 			// 1. frontmatter tags
@@ -158,9 +155,6 @@ export default class AutoTaggerPlugin extends Plugin {
 				cache.tags.forEach(tagObj => this.existingTags.add(tagObj.tag.replace(/^#/, '')));
 			}
 		}
-
-		console.log('现有标签加载完成');
-		console.log('当前标签列表:', Array.from(this.existingTags));
 	}
 
 	// 查找最相关的已有标签
@@ -199,7 +193,6 @@ export default class AutoTaggerPlugin extends Plugin {
 		try {
 			const tags = await this.analyzeTags(content);
 			loadingNotice.hide();
-
 			new TagSelectionModal(this.app, tags, async (selectedTags) => {
 				await this.updateFileFrontMatter(file, selectedTags);
 			}).open();
@@ -210,34 +203,39 @@ export default class AutoTaggerPlugin extends Plugin {
 	}
 
 	async analyzeTags(content: string): Promise<string[]> {
-		// 首先尝试从已有标签中找到相关的
-		const relevantExistingTags = this.findRelevantExistingTags(content);
-		
-		// 如果找到了相关的已有标签，直接返回
-		if (relevantExistingTags.length > 0) {
-			return relevantExistingTags;
+		const provider = this.settings.provider;
+		const providerConfig = this.settings.providerSettings[provider];
+
+		// 智能标签推荐：将所有已有标签和内容一起发给 AI
+		if (!providerConfig) {
+			new Notice('AI Tags 配置错误：未找到当前服务商的配置，请重新保存设置。');
+			return [];
+		}
+		if (!providerConfig.apiUrl || !providerConfig.model) {
+			new Notice('AI Tags 配置错误：API 地址或模型未设置，请在设置中补全。');
+			return [];
 		}
 
-		// 如果没有找到相关的已有标签，使用 AI 生成新标签
-		const currentProvider = this.settings.provider;
-		const providerConfig = this.settings.providerSettings[currentProvider];
-
-		if (!providerConfig || !providerConfig.apiKey) {
-			throw new Error('请先在设置中配置 API 密钥');
-		}
+		// 构造智能 prompt
+		const allExistingTags = Array.from(this.existingTags);
+		const smartPrompt =
+			`你是一个文档标签生成器。请根据以下文档内容和已有标签列表，优先从已有标签中挑选1-2个最相关的标签，再补充新标签使总数达到3个。如果没有合适的已有标签，可以全部新生成。只返回标签，用逗号分隔，不要包含其他内容。\n\n` +
+			`文档内容：\n${content}\n\n` +
+			`已有标签列表：\n${allExistingTags.join(', ')}\n`;
 
 		const config: AIServiceConfig = {
 			apiKey: providerConfig.apiKey,
 			apiUrl: providerConfig.apiUrl,
 			model: providerConfig.model,
-			customPrompt: this.settings.customPrompt
+			customPrompt: smartPrompt
 		};
-
 		const aiService = new AIService(config);
 		try {
-			return await aiService.generateTags(content);
+			const result = await aiService.generateTags(content);
+			return result;
 		} catch (error) {
-			throw new Error(`生成标签失败：${error.message}`);
+			new Notice('AI Tags 生成标签时出错，请检查控制台日志。');
+			return [];
 		}
 	}
 
