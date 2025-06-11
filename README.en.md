@@ -2,29 +2,35 @@
 
 [English](README.en.md) | [简体中文](README.md)
 
-A powerful Obsidian plugin that uses AI technology to intelligently generate tags for your notes, helping you better organize and manage your knowledge base.
+A powerful Obsidian plugin that uses AI to intelligently generate tags for your notes, helping you better organize and manage your knowledge base.
 
 ![](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
 
 ## ✨ Key Features
 
-- 🤖 Support for Multiple AI Service Providers
-  - OpenAI (GPT-4o-mini, GPT-4o, GPT-3.5-turbo)
-  - Gemini (Gemini-1.5-flash, Gemini-2.0-flash)
-  - DeepSeek (deepseek-chat, deepseek-reasoner)
-  - DeepSeek - Volcano Engine
-  - Claude (in testing)
+- 🤖 Supports Multiple Mainstream AI Providers
+  - OpenAI
+  - Gemini
+  - DeepSeek
+  - DeepSeek - Volcano Engine (other Volcano models are also supported)
+  - Claude
+  - Ollama (local LLM)
 
-- 🔧 Flexible Configuration Options
+- 🏷️ Intelligent Tag Generation
+  - Always recommends 3 tags: AI will first select 1-2 most relevant tags from your existing tag list, then generate new tags to make up 3 in total
+  - The relevance of existing tags is judged by AI, ensuring more accurate recommendations
+  - Supports custom prompts for flexible tag generation style and rules
+
+- 🛠️ Flexible Configuration
   - Custom API endpoint support
-  - Customizable model selection
-  - Custom prompt template support
-  - Compatible with OneAPI and other proxy services
+  - Custom model selection
+  - Supports local Ollama models (no API Key required, privacy-friendly)
+  - One-click restore to default API endpoint
 
-- 🎯 Intelligent Tag Generation
-  - AI-powered tag recommendations based on document content
-  - Manual editing and filtering of suggested tags
-  - Automatic frontmatter updates
+- ⚡ Convenient Experience
+  - One-click API connectivity test to quickly verify your configuration
+  - Edit and filter recommended tags before applying
+  - Automatically updates document frontmatter
 
 ## 🚀 Installation
 
@@ -39,52 +45,47 @@ A powerful Obsidian plugin that uses AI technology to intelligently generate tag
 4. Restart Obsidian
 5. Enable AI Tags Generator in Settings > Community Plugins
 
+**Or use the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat):**
+1. Install the BRAT plugin
+2. Add this repo to BRAT: `dlzmoe/obsidian-ai-tags`
+3. Enable AI Tags Generator
+
 ## ⚙️ Configuration
 
 1. Find "AI Tags Generator" in the Obsidian settings panel
-2. Choose your preferred AI service provider
-3. Configure the service provider settings:
-   - API key
-   - API endpoint (optional, defaults to official endpoint)
-   - Select the model to use
+2. Choose your preferred AI provider (Ollama/local supported)
+3. Configure the provider:
+   - API Key (if required)
+   - API endpoint (optional, defaults to official or local endpoint)
+   - Model selection
    - Custom prompt template (optional, for customizing tag generation style and rules)
+   - One-click restore to default API endpoint
+   - One-click API connectivity test
 
-### API Configuration Examples
+## 💡 Usage
 
-**OpenAI Configuration**
-- API Endpoint: https://api.openai.com/v1/chat/completions
-- Recommended Model: gpt-4o-mini
+- Open any Markdown note, click the sidebar tag icon or use the command palette to generate tags
+- The plugin will prioritize recommending existing tags, and use AI to fill up to 3 tags
+- You can edit and filter the recommended tags before applying; tags are written to the frontmatter
 
-**Gemini Configuration**
-- API Endpoint: https://generativelanguage.googleapis.com/v1beta/models/
-- Recommended Model: gemini-1.5-flash
+## ❓ FAQ
 
-## 📝 How to Use
+- **API connectivity test failed?**
+  - Please check your API Key, endpoint, and network/proxy settings
+- **How to use Ollama local models?**
+  - Select Ollama (local), enter your local model name (e.g. llama3), no API Key required, make sure your local Ollama service is running
+- **Tags not relevant enough?**
+  - Try customizing the prompt or improving your tag library; AI will intelligently select the most relevant tags
 
-1. Open any Markdown document
-2. Click the tag icon button in the left sidebar
-3. The plugin will automatically analyze the document content and generate recommended tags
-4. In the tag selection popup, you can:
-   - Check/uncheck recommended tags
-   - Edit tag content
-   - Click confirm to add selected tags to the document
+---
+
+MIT License | Contributions welcome | [GitHub Issues](https://github.com/dlzmoe/obsidian-ai-tags/issues)
 
 ## 🖼️ Feature Showcase
 
 ![](https://github.com/user-attachments/assets/571891dd-04cc-44f5-9168-3411133033ab)
 ![](https://github.com/user-attachments/assets/cd11f758-8846-440d-8ff7-dba637cbcaf9)
 ![](https://github.com/user-attachments/assets/0bb82f73-b3ab-49c9-b94f-558d6009477c)
-
-## ❓ FAQ
-
-**Q: Why did tag generation fail?**  
-A: Please check:
-1. If the API key is correctly configured
-2. If the network connection is working
-3. If you have sufficient API credits
-
-**Q: How to use third-party API proxies?**  
-A: Simply modify the API endpoint in settings to your proxy service address. The format should match the original API format.
 
 ## 📄 License
 
