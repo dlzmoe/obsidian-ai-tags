@@ -122,6 +122,12 @@ export class AIService {
         if (this.config.apiUrl.includes('generativelanguage.googleapis.com')) {
             return 'gemini';
         }
+        if (this.config.apiUrl.includes('anthropic.com')) {
+            return 'claude';
+        }
+        if (this.config.apiUrl.includes('localhost:11434') || this.config.apiUrl.includes('ollama')) {
+            return 'ollama';
+        }
         return 'openai';
     }
 
@@ -146,15 +152,16 @@ export class AIService {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json'
         };
-
         if (this.config.apiKey) {
             if (provider === 'gemini') {
                 headers['x-goog-api-key'] = this.config.apiKey;
-            } else {
+            } else if (provider === 'claude') {
+                headers['x-api-key'] = this.config.apiKey;
+            } else if (provider === 'openai') {
                 headers['Authorization'] = `Bearer ${this.config.apiKey}`;
             }
+            // ollama 不需要 key
         }
-
         return headers;
     }
 
@@ -171,7 +178,19 @@ export class AIService {
                 ]
             };
         }
-
+        if (provider === 'claude') {
+            return {
+                model: this.config.model,
+                max_tokens: 256,
+                messages: [
+                    {
+                        role: 'user',
+                        content: content
+                    }
+                ]
+            };
+        }
+        // openai
         return {
             model: this.config.model,
             messages: [
@@ -192,6 +211,8 @@ export class AIService {
             let tagsText = '';
             if (provider === 'gemini') {
                 tagsText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+            } else if (provider === 'claude') {
+                tagsText = data?.content?.[0]?.text?.trim() || data?.completion?.trim() || '';
             } else {
                 tagsText = data.choices?.[0]?.message?.content?.trim() || '';
             }

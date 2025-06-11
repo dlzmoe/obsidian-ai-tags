@@ -1,9 +1,9 @@
 {
   "id": "ai-tags",
   "name": "AI Tags Generator",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "minAppVersion": "0.15.0",
-  "description": "使用 AI 自动为文档笔记生成标签",
+  "description": "使用 AI 自动为文档笔记生成推荐标签。",
   "author": "dlzmoe",
   "authorUrl": "https://github.com/dlzmoe",
   "isDesktopOnly": false

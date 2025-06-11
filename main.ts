@@ -1,90 +1,132 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, Modal, MarkdownView, DropdownComponent } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, Modal, MarkdownView, DropdownComponent, TextComponent } from 'obsidian';
 
-import { AIService, AIServiceConfig } from './src/services/AIService';
+import { AIService } from './src/services/AIService';
+
+interface ProviderConfig {
+	defaultUrl: string;
+	defaultModel: string;
+	models: string[];
+}
+
+interface ProviderConfigs {
+	[key: string]: ProviderConfig;
+}
+
+const PROVIDER_CONFIGS: ProviderConfigs = {
+	openai: {
+		defaultUrl: 'https://api.openai.com/v1/chat/completions',
+		defaultModel: 'gpt-3.5-turbo',
+		models: ['gpt-3.5-turbo', 'gpt-4']
+	},
+	gemini: {
+		defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
+		defaultModel: 'gemini-pro',
+		models: ['gemini-pro']
+	},
+	claude: {
+		defaultUrl: 'https://api.anthropic.com/v1/messages',
+		defaultModel: 'claude-3-opus-20240229',
+		models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229']
+	},
+	deepseek: {
+		defaultUrl: 'https://api.deepseek.com/v1/chat/completions',
+		defaultModel: 'deepseek-chat',
+		models: ['deepseek-chat']
+	},
+	volcano: {
+		defaultUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+		defaultModel: 'volcengine',
+		models: ['volcengine']
+	},
+	ollama: {
+		defaultUrl: 'http://localhost:11434/v1/chat/completions',
+		defaultModel: 'llama3',
+		models: ['llama3', 'phi3', 'qwen2', 'mistral']
+	}
+};
 
 interface ProviderSettings {
 	apiKey: string;
 	apiUrl: string;
 	model: string;
+	customModel?: string;
+}
+
+interface AIServiceConfig {
+	apiKey: string;
+	apiUrl: string;
+	model: string;
+	customPrompt?: string;
 }
 
 interface AutoTaggerSettings {
 	provider: string;
-	providerSettings: Record<string, ProviderSettings>;
+	providerSettings: {
+		[key: string]: ProviderSettings;
+	};
 	customPrompt: string;
 }
 
 const DEFAULT_SETTINGS: AutoTaggerSettings = {
 	provider: 'openai',
-	customPrompt: '你是一个文档标签生成器，请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明。',
 	providerSettings: {
 		openai: {
 			apiKey: '',
-			apiUrl: 'https://api.openai.com/v1/chat/completions',
-			model: 'gpt-4o-mini'
+			apiUrl: PROVIDER_CONFIGS.openai.defaultUrl,
+			model: PROVIDER_CONFIGS.openai.defaultModel
 		},
 		gemini: {
 			apiKey: '',
-			apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
-			model: 'gemini-1.5-flash'
+			apiUrl: PROVIDER_CONFIGS.gemini.defaultUrl,
+			model: PROVIDER_CONFIGS.gemini.defaultModel
 		},
 		claude: {
 			apiKey: '',
-			apiUrl: 'https://api.anthropic.com/v1/messages',
-			model: 'claude-3-5-sonnet'
+			apiUrl: PROVIDER_CONFIGS.claude.defaultUrl,
+			model: PROVIDER_CONFIGS.claude.defaultModel
 		},
 		deepseek: {
 			apiKey: '',
-			apiUrl: 'https://api.deepseek.com/v1/chat/completions',
-			model: 'deepseek-chat'
+			apiUrl: PROVIDER_CONFIGS.deepseek.defaultUrl,
+			model: PROVIDER_CONFIGS.deepseek.defaultModel
 		},
 		volcano: {
 			apiKey: '',
-			apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-			model: ''
+			apiUrl: PROVIDER_CONFIGS.volcano.defaultUrl,
+			model: PROVIDER_CONFIGS.volcano.defaultModel
+		},
+		ollama: {
+			apiKey: '',
+			apiUrl: PROVIDER_CONFIGS.ollama.defaultUrl,
+			model: PROVIDER_CONFIGS.ollama.defaultModel
 		}
-	}
-}
-
-const PROVIDER_CONFIGS = {
-	openai: {
-		defaultUrl: 'https://api.openai.com/v1/chat/completions',
-		defaultModel: 'gpt-4o-mini',
-		models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
 	},
-	gemini: {
-		defaultUrl: 'https://generativelanguage.googleapis.com',
-		defaultModel: 'gemini-1.5-flash',
-		models: ['gemini-1.5-flash', 'gemini-2.0-flash']
-	},
-	claude: {
-		defaultUrl: 'https://api.anthropic.com/v1/messages',
-		defaultModel: 'claude-3-5-sonnet',
-		models: ['claude-3-5-sonnet', 'claude-3-7-sonnet', 'claude-3-opus', 'claude-3-haiku']
-	},
-	deepseek: {
-		defaultUrl: 'https://api.deepseek.com/v1/chat/completions',
-		defaultModel: 'deepseek-chat',
-		models: ['deepseek-chat', 'deepseek-reasoner']
-	},
-	volcano: {
-		defaultUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-		defaultModel: '',
-		models: ['']
-	}
+	customPrompt: ''
 };
 
 export default class AutoTaggerPlugin extends Plugin {
 	settings: AutoTaggerSettings;
+	existingTags: Set<string> = new Set(); // 存储所有已有标签
 
 	async onload() {
 		await this.loadSettings();
+		await this.loadExistingTags(); // 加载已有标签
 
 		this.addRibbonIcon('tag', '生成标签', async () => {
 			await this.generateTags();
 		});
 
 		this.addSettingTab(new AutoTaggerSettingTab(this.app, this));
+
+		this.registerEvent(
+			this.app.vault.on('rename', () => this.loadExistingTags())
+		);
+		this.registerEvent(
+			this.app.vault.on('delete', () => this.loadExistingTags())
+		);
+		this.registerEvent(
+			this.app.vault.on('create', () => this.loadExistingTags())
+		);
 	}
 
 	async loadSettings() {
@@ -93,6 +135,53 @@ export default class AutoTaggerPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	// 替换标签提取逻辑，提取 frontmatter 和正文所有标签
+	async loadExistingTags() {
+		this.existingTags = new Set<string>();
+		const files = this.app.vault.getMarkdownFiles();
+		console.log('开始加载现有标签...');
+		console.log(`找到 ${files.length} 个 Markdown 文件`);
+
+		for (const file of files) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			// 1. frontmatter tags
+			if (cache?.frontmatter && cache.frontmatter.tags) {
+				const tags = Array.isArray(cache.frontmatter.tags)
+					? cache.frontmatter.tags
+					: [cache.frontmatter.tags];
+				tags.forEach(tag => this.existingTags.add(tag));
+			}
+			// 2. inline tags
+			if (cache?.tags) {
+				cache.tags.forEach(tagObj => this.existingTags.add(tagObj.tag.replace(/^#/, '')));
+			}
+		}
+
+		console.log('现有标签加载完成');
+		console.log('当前标签列表:', Array.from(this.existingTags));
+	}
+
+	// 查找最相关的已有标签
+	findRelevantExistingTags(content: string): string[] {
+		const relevantTags: string[] = [];
+		const contentLower = content.toLowerCase();
+		
+		// 将内容分词（简单实现，可以改进）
+		const words = contentLower.split(/[\s,，.。!！?？;；:：]/);
+		
+		// 遍历已有标签，查找匹配的
+		for (const tag of this.existingTags) {
+			const tagLower = tag.toLowerCase();
+			// 如果标签在内容中出现，或者内容中的词在标签中出现
+			if (contentLower.includes(tagLower) || words.some(word => tagLower.includes(word))) {
+				relevantTags.push(tag);
+				if (relevantTags.length >= 2) break; // 最多返回2个相关标签
+			}
+		}
+		
+		return relevantTags;
 	}
 
 	async generateTags() {
@@ -121,6 +210,15 @@ export default class AutoTaggerPlugin extends Plugin {
 	}
 
 	async analyzeTags(content: string): Promise<string[]> {
+		// 首先尝试从已有标签中找到相关的
+		const relevantExistingTags = this.findRelevantExistingTags(content);
+		
+		// 如果找到了相关的已有标签，直接返回
+		if (relevantExistingTags.length > 0) {
+			return relevantExistingTags;
+		}
+
+		// 如果没有找到相关的已有标签，使用 AI 生成新标签
 		const currentProvider = this.settings.provider;
 		const providerConfig = this.settings.providerSettings[currentProvider];
 
@@ -292,6 +390,12 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 				'DeepSeek - 火山引擎',
 				'• API 地址：https://ark.cn-beijing.volces.com/api/v3/chat/completions',
 				'• 注意：需要在火山方舟设置推理模型，然后添加模型名称，如：ep-20250221084433'
+			],
+			ollama: [
+				'Ollama（本地）',
+				'• API 地址：http://localhost:11434/v1/chat/completions',
+				'• 支持模型：llama3, phi3, qwen2, mistral 等本地模型',
+				'• 本地部署，无需 API Key'
 			]
 		};
 
@@ -304,27 +408,36 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 			const section = containerEl.createDiv({ cls: 'provider-section' });
 			const providerInfo = section.createDiv({ cls: 'provider-info' });
 
-			providerDescriptions[provider].forEach(text => {
-				providerInfo.createEl('p', { text });
-			});
+			if (providerDescriptions[provider]) {
+				providerDescriptions[provider].forEach(text => {
+					providerInfo.createEl('p', { text });
+				});
+			}
 		};
 
 		// 显示当前选择的提供商信息
 		showProviderInfo(this.plugin.settings.provider);
 
+		// 添加提供商选择下拉框
 		new Setting(containerEl)
-			.setName('AI 提供商')
-			.setDesc('选择 AI 服务提供商')
+			.setName('AI 服务商')
+			.setDesc('选择要使用的 AI 服务商')
 			.addDropdown(dropdown => {
 				Object.keys(PROVIDER_CONFIGS).forEach(provider => {
-					dropdown.addOption(provider, provider === 'openai' ? 'OpenAI' : 
-						provider === 'gemini' ? 'Gemini' : 
-						provider === 'claude' ? 'Claude（测试中）' : 
-						provider === 'deepseek' ? 'DeepSeek - 深度求索' : 
-						'DeepSeek - 火山引擎');
+					let label = '';
+					switch (provider) {
+						case 'openai': label = 'OpenAI'; break;
+						case 'gemini': label = 'Gemini'; break;
+						case 'claude': label = 'Claude'; break;
+						case 'deepseek': label = 'DeepSeek - 深度求索'; break;
+						case 'volcano': label = 'DeepSeek - 火山引擎'; break;
+						case 'ollama': label = 'Ollama（本地）'; break;
+						default: label = provider;
+					}
+					dropdown.addOption(provider, label);
 				});
 				dropdown.setValue(this.plugin.settings.provider);
-				dropdown.onChange(async (value) => {
+				dropdown.onChange(async (value: string) => {
 					// 保存当前提供商的设置
 					const currentProvider = this.plugin.settings.provider;
 					const currentSettings = this.plugin.settings.providerSettings[currentProvider];
@@ -342,128 +455,88 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 					}
 
 					await this.plugin.saveSettings();
-					showProviderInfo(value);
 					this.display();
 				});
 			});
 
+		// API 密钥设置 + 测试连通性图标按钮
 		new Setting(containerEl)
 			.setName('API 密钥')
 			.setDesc('输入你的 API 密钥')
-			.addText(text => text
-				.setPlaceholder('请输入 API 密钥')
-				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey)
-				.onChange(async (value) => {
-					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey = value;
-					await this.plugin.saveSettings();
-				}))
-			.addButton(button => {
-				button
-					.setIcon('check')
+			.addText((text: TextComponent) => {
+				text.setPlaceholder('请输入 API 密钥')
+					.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey)
+					.onChange(async (value: string) => {
+						this.plugin.settings.providerSettings[this.plugin.settings.provider].apiKey = value;
+						await this.plugin.saveSettings();
+					});
+			})
+			.addExtraButton((btn) => {
+				btn.setIcon('lucide-zap')
 					.setTooltip('测试连通性')
-					.onClick(async (evt) => {
-						const buttonEl = evt.currentTarget as HTMLElement;
-						if (buttonEl.hasClass('loading')) return;
-
+					.onClick(async () => {
+						btn.setDisabled(true);
+						const originalIcon = btn.extraSettingsEl.querySelector('svg')?.outerHTML;
+						btn.setIcon('lucide-loader');
+						btn.extraSettingsEl.classList.add('ai-tags-spin');
 						const provider = this.plugin.settings.provider;
 						const config = this.plugin.settings.providerSettings[provider];
-
-						if (!config.apiKey) {
-							new Notice('请先输入 API 密钥');
-							return;
-						}
-
-						buttonEl.addClass('loading');
-						const originalIcon = buttonEl.querySelector('.svg-icon')?.innerHTML;
-						buttonEl.querySelector('.svg-icon').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>';
-
 						const aiService = new AIService({
 							apiKey: config.apiKey,
 							apiUrl: config.apiUrl,
 							model: config.model
 						});
-
 						try {
 							await aiService.testConnection();
 							new Notice('API 连接测试成功');
-						} catch (error) {
-							new Notice(`API 连接测试失败: ${error.message}`);
+						} catch (e: any) {
+							new Notice('API 连接测试失败: ' + (e?.message || e));
 						} finally {
-							buttonEl.removeClass('loading');
-							if (originalIcon) {
-								buttonEl.querySelector('.svg-icon').innerHTML = originalIcon;
-							}
+							btn.setDisabled(false);
+							btn.setIcon('lucide-zap');
+							btn.extraSettingsEl.classList.remove('ai-tags-spin');
 						}
 					});
 			});
 
+		// API 地址设置 + 恢复默认图标按钮
 		new Setting(containerEl)
 			.setName('API 地址')
 			.setDesc('输入 API 地址')
-			.addText(text => text
-				.setPlaceholder(PROVIDER_CONFIGS[this.plugin.settings.provider].defaultUrl)
-				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl)
-				.onChange(async (value) => {
-					this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = value;
-					await this.plugin.saveSettings();
-				}))
-			.addButton(button => {
-				button
-					.setIcon('reset')
-					.setTooltip('恢复默认 API 地址')
-					.onClick(async (evt) => {
-						const buttonEl = evt.currentTarget as HTMLElement;
-						if (buttonEl.hasClass('loading')) return;
-
-						buttonEl.addClass('loading');
-						const originalIcon = buttonEl.querySelector('.svg-icon')?.innerHTML;
-						buttonEl.querySelector('.svg-icon').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>';
-
-						try {
-							this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = 
-								PROVIDER_CONFIGS[this.plugin.settings.provider].defaultUrl;
-							await this.plugin.saveSettings();
-							this.display();
-						} finally {
-							buttonEl.removeClass('loading');
-							if (originalIcon) {
-								buttonEl.querySelector('.svg-icon').innerHTML = originalIcon;
-							}
-						}
+			.addText((text: TextComponent) => {
+				text.setPlaceholder(PROVIDER_CONFIGS[this.plugin.settings.provider].defaultUrl)
+					.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl)
+					.onChange(async (value: string) => {
+						this.plugin.settings.providerSettings[this.plugin.settings.provider].apiUrl = value;
+						await this.plugin.saveSettings();
+					});
+			})
+			.addExtraButton((btn) => {
+				btn.setIcon('lucide-rotate-ccw')
+					.setTooltip('恢复默认')
+					.onClick(async () => {
+						const provider = this.plugin.settings.provider;
+						this.plugin.settings.providerSettings[provider].apiUrl = PROVIDER_CONFIGS[provider].defaultUrl;
+						await this.plugin.saveSettings();
+						this.display();
 					});
 			});
-
-		// 为特定提供商添加提示
-		if (this.plugin.settings.provider === 'gemini') {
-			containerEl.createEl('div', { 
-				text: '注意：Gemini API URL 暂不支持，请使用 https://generativelanguage.googleapis.com 作为默认地址。', 
-				cls: 'setting-item-description' 
-			});
-		} else if (this.plugin.settings.provider === 'volcano') {
-			containerEl.createEl('div', { 
-				text: '注意：火山引擎 API URL 应以 https://ark.cn-beijing.volces.com/api/v3/chat/completions 开头，模型服务名称将自动添加。', 
-				cls: 'setting-item-description' 
-			});
-		}
 
 		// 添加预设模型下拉框
 		new Setting(containerEl)
 			.setName('预设模型')
 			.setDesc('选择预设的 AI 模型')
 			.addDropdown(dropdown => {
-				const models = PROVIDER_CONFIGS[this.plugin.settings.provider].models;
+				const models = PROVIDER_CONFIGS[this.plugin.settings.provider]?.models ?? [];
 				models.forEach(model => {
 					dropdown.addOption(model, model);
 				});
-				
 				// 获取当前提供商的模型设置
 				const currentModel = this.plugin.settings.providerSettings[this.plugin.settings.provider].model;
-				
 				// 设置当前值为预设模型中的一个，如果不在预设中则选择第一个
-				const defaultModel = models.includes(currentModel) ? currentModel : models[0];
+				const defaultModel = models.includes(currentModel) ? currentModel : (models[0] ?? '');
 				dropdown.setValue(defaultModel);
-				
-				dropdown.onChange(async (value) => {
+				dropdown.onChange(async (value: string) => {
 					// 只有当用户没有输入自定义模型时，才使用预设模型
 					const customModelInput = this.plugin.settings.providerSettings[this.plugin.settings.provider].customModel || '';
 					if (!customModelInput.trim()) {
@@ -472,20 +545,21 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 					}
 				});
 			})
-			.settingEl.dty=nodr':lay =
+			.settingEl.style.display = 'none';
 
 		// 为每个提供商添加自定义模型输入
-		new === 'volcano' ? 'none' : 'flex'Setting(containerEl)
+		new Setting(containerEl)
 			.setName(this.plugin.settings.provider === 'volcano' ? '模型' : '自定义模型')
 			.setDesc(this.plugin.settings.provider === 'volcano' ? '输入模型名称' : '输入自定义模型名称 (优先使用)')
-			.addText(text => text
-				.setPlaceholder('自定义模型名称')
-				.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model)
-				.onChange(async (value) => {
-					// 更新模型设置为自定义输入的值
-					this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value.trim();
-					await this.plugin.saveSettings();
-				}));
+			.addText((text: TextComponent) => {
+				text.setPlaceholder('自定义模型名称')
+					.setValue(this.plugin.settings.providerSettings[this.plugin.settings.provider].model)
+					.onChange(async (value: string) => {
+						// 更新模型设置为自定义输入的值
+						this.plugin.settings.providerSettings[this.plugin.settings.provider].model = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// 添加自定义提示词设置
 		const defaultPrompt = '你是一个文档标签生成器，请根据文档内容生成最多 3 个相关的标签。只需返回标签，用逗号分隔，不要包含其他解释或说明。';
@@ -514,7 +588,5 @@ class AutoTaggerSettingTab extends PluginSettingTab {
 						this.display();
 					});
 			});
-
-
 	}
 }
