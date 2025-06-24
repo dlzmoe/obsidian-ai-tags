@@ -14,7 +14,7 @@
     "ai",
     "tags"
   ],
-  "author": "dlzmoe",
+  "author": "ezyshu",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.11.6",
