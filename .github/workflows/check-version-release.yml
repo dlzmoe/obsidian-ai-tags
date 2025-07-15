@@ -1,0 +1,68 @@
+name: Check Version and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Get version from package.json
+        id: pkg
+        run: |
+          echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
+      - name: Get latest release tag
+        id: latest_release
+        run: |
+          tag=$(gh release list --limit 1 --json tagName -q '.[0].tagName' || echo '')
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare versions and set flag
+        id: compare
+        run: |
+          if [ "${{ steps.pkg.outputs.version }}" = "${{ steps.latest_release.outputs.tag }}" ]; then
+            echo "up_to_date=true" >> $GITHUB_OUTPUT
+          else
+            echo "up_to_date=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Bun
+        if: steps.compare.outputs.up_to_date == 'false'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Build
+        if: steps.compare.outputs.up_to_date == 'false'
+        run: |
+          bun install
+          bun run build
+
+      - name: Create Release
+        if: steps.compare.outputs.up_to_date == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pkg.outputs.version }}
+          name: ${{ steps.pkg.outputs.version }}
+          generate_release_notes: true
+          files: |
+            main.js
+            manifest.json
+            styles.css
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
